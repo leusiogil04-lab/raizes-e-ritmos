@@ -1,0 +1,114 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Paleta de marca Raízes e Ritmos */
+  --color-cream: var(--cream);
+  --color-wine: var(--wine);
+  --color-terracotta: var(--terracotta);
+  --color-orange: var(--orange);
+  --color-earth: var(--earth);
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+}
+
+:root {
+  color-scheme: light;
+
+  /* === Paleta base === */
+  --cream: #f6f4f4;
+  --wine: #4c1316;
+  --terracotta: #d6551c;
+  --orange: #f48e19;
+  --earth: #863a0e;
+
+  --radius: 0.75rem;
+
+  /* === Tokens semânticos === */
+  --background: #f6f4f4;
+  --foreground: #4c1316;
+  --card: #efeae7;
+  --card-foreground: #4c1316;
+  --popover: #f6f4f4;
+  --popover-foreground: #4c1316;
+  --primary: #d6551c;
+  --primary-foreground: #f6f4f4;
+  --secondary: #863a0e;
+  --secondary-foreground: #f6f4f4;
+  --muted: #e9e2df;
+  --muted-foreground: #8a5b52;
+  --accent: #f48e19;
+  --accent-foreground: #4c1316;
+  --destructive: #b3261e;
+  --border: rgba(76, 19, 22, 0.14);
+  --input: rgba(76, 19, 22, 0.14);
+  --ring: #d6551c;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+  }
+}
+
+@layer utilities {
+  /* Máscara suave para revelar textos */
+  .text-outline {
+    -webkit-text-stroke: 1px currentColor;
+    color: transparent;
+  }
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
