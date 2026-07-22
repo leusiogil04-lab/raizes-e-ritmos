@@ -284,7 +284,7 @@ export const sectionsConfig = {
     eyebrow: "Cultura",
     title: "Uma cultura que se escuta.\nSe move.\nSe vive.",
     text: "Moçambique é um país de muitas culturas, línguas, ritmos e tradições. O Raízes e Ritmos convida você a conhecer parte desse universo através da música e da perspectiva de um artista moçambicano.",
-    /** Galeria de imagens (troque livremente) */
+    /** Galeria de imagens */
     gallery: [
       "/images/raizes8.jpg",
       "/images/raizes7.jpg",
@@ -407,9 +407,9 @@ export const faqConfig: FaqItem[] = [
  *  REDES SOCIAIS E CONTATO
  * ------------------------------------------------------------------- */
 export const socialConfig = {
-  whatsapp: "https://wa.me/5511999999999", // TROQUE pelo número real
-  instagram: "https://instagram.com/raizeseritmos", // TROQUE
-  youtube: "https://youtube.com/@raizeseritmos", // TROQUE
+  whatsapp: "https://wa.me/5511999999999", 
+  instagram: "https://instagram.com/raizeseritmos", 
+  youtube: "https://youtube.com/@raizeseritmos", 
   email: "contato@raizeseritmos.com",
 }
 
