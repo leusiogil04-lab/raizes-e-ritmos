@@ -5,60 +5,146 @@ import { getSiteUrl } from "@/lib/site-url"
 
 /**
  * POST /api/checkout
- * Cria uma inscrição pendente e (se o Mercado Pago estiver configurado)
- * uma preferência de pagamento, retornando a URL de checkout.
+ * Cria uma inscrição pendente e uma preferência de pagamento no Mercado Pago.
  *
- * Body: { editionId, buyerName, buyerEmail, buyerPhone?, quantity? }
+ * Body:
+ * {
+ *   editionId,
+ *   buyerName,
+ *   buyerEmail,
+ *   buyerPhone?,
+ *   quantity?
+ * }
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { editionId, buyerName, buyerEmail, buyerPhone, quantity = 1 } = body ?? {}
 
-    // Validação de entrada
+    const {
+      editionId,
+      buyerName,
+      buyerEmail,
+      buyerPhone,
+      quantity = 1,
+    } = body ?? {}
+
+    // ============================================================
+    // 1. VALIDAÇÃO DOS DADOS RECEBIDOS
+    // ============================================================
+
     if (!editionId || !buyerName || !buyerEmail) {
       return NextResponse.json(
-        { error: "Preencha nome, e-mail e selecione a turma." },
+        {
+          error: "Preencha nome, e-mail e selecione a turma.",
+        },
         { status: 400 },
       )
     }
-    const qty = Math.max(1, Math.min(10, Number(quantity) || 1))
+
+    const qty = Math.max(
+      1,
+      Math.min(10, Number(quantity) || 1),
+    )
+
+    // ============================================================
+    // 2. CONEXÃO COM O SUPABASE
+    // ============================================================
 
     const admin = createAdminClient()
 
-    // Busca a turma + evento (fonte de verdade do preço e vagas)
+    // ============================================================
+    // 3. BUSCA A TURMA E O EVENTO
+    // ============================================================
+
     const { data: edition, error: edErr } = await admin
       .from("editions")
       .select("*, events(title)")
       .eq("id", editionId)
       .maybeSingle()
 
-    if (edErr || !edition) {
-      return NextResponse.json({ error: "Turma não encontrada." }, { status: 404 })
+    if (edErr) {
+      console.error(
+        "[CHECKOUT] Erro ao buscar turma no Supabase:",
+        edErr,
+      )
+
+      return NextResponse.json(
+        {
+          error: "Erro ao buscar os dados da turma.",
+          details: edErr.message,
+        },
+        { status: 500 },
+      )
     }
 
-    // Regras de negócio
-    const openStatuses = ["inscricoes_abertas", "ultimas_vagas"]
+    if (!edition) {
+      return NextResponse.json(
+        {
+          error: "Turma não encontrada.",
+        },
+        { status: 404 },
+      )
+    }
+
+    // ============================================================
+    // 4. VERIFICA SE AS INSCRIÇÕES ESTÃO ABERTAS
+    // ============================================================
+
+    const openStatuses = [
+      "inscricoes_abertas",
+      "ultimas_vagas",
+    ]
+
     if (!openStatuses.includes(edition.status)) {
       return NextResponse.json(
-        { error: "As inscrições para esta turma não estão abertas." },
+        {
+          error:
+            "As inscrições para esta turma não estão abertas.",
+        },
         { status: 409 },
       )
     }
-    const seatsLeft = edition.capacity - edition.seats_taken
+
+    // ============================================================
+    // 5. VERIFICA AS VAGAS
+    // ============================================================
+
+    const seatsLeft =
+      edition.capacity - edition.seats_taken
+
     if (seatsLeft < qty) {
       return NextResponse.json(
-        { error: "Não há vagas suficientes nesta turma." },
+        {
+          error:
+            "Não há vagas suficientes nesta turma.",
+        },
         { status: 409 },
       )
     }
 
-    const amountCents = edition.price_cents * qty
-    const eventTitle = (edition.events as { title?: string } | null)?.title ?? "Vivência"
-    const itemTitle = edition.title ? `${eventTitle} — ${edition.title}` : eventTitle
+    // ============================================================
+    // 6. CALCULA O VALOR
+    // ============================================================
 
-    // Cria a inscrição pendente
-    const { data: registration, error: regErr } = await admin
+    const amountCents =
+      edition.price_cents * qty
+
+    const eventTitle =
+      (edition.events as { title?: string } | null)
+        ?.title ?? "Vivência"
+
+    const itemTitle = edition.title
+      ? `${eventTitle} — ${edition.title}`
+      : eventTitle
+
+    // ============================================================
+    // 7. CRIA A INSCRIÇÃO PENDENTE NO SUPABASE
+    // ============================================================
+
+    const {
+      data: registration,
+      error: regErr,
+    } = await admin
       .from("registrations")
       .insert({
         edition_id: editionId,
@@ -75,15 +161,30 @@ export async function POST(request: Request) {
       .single()
 
     if (regErr || !registration) {
-      console.log("[v0] erro ao criar inscrição:", regErr?.message)
+      console.error(
+        "[CHECKOUT] Erro ao criar inscrição:",
+        regErr,
+      )
+
       return NextResponse.json(
-        { error: "Não foi possível iniciar a inscrição." },
+        {
+          error:
+            "Não foi possível iniciar a inscrição.",
+          details: regErr?.message,
+        },
         { status: 500 },
       )
     }
 
-    // Se o Mercado Pago não estiver configurado, retorna aviso claro
+    // ============================================================
+    // 8. VERIFICA SE O MERCADO PAGO ESTÁ CONFIGURADO
+    // ============================================================
+
     if (!isMercadoPagoConfigured()) {
+      console.error(
+        "[CHECKOUT] MERCADOPAGO_ACCESS_TOKEN não configurado.",
+      )
+
       return NextResponse.json(
         {
           error:
@@ -95,31 +196,118 @@ export async function POST(request: Request) {
       )
     }
 
-    // Cria a preferência de pagamento
+    // ============================================================
+    // 9. OBTÉM A URL PRINCIPAL DO SITE
+    // ============================================================
+
     const siteUrl = getSiteUrl()
-    const { preferenceId, initPoint } = await createPreference({
+
+    console.log(
+      "[CHECKOUT] Site URL utilizada:",
+      siteUrl,
+    )
+
+    console.log(
+      "[CHECKOUT] Criando preferência para:",
+      {
+        registrationId: registration.id,
+        title: itemTitle,
+        quantity: qty,
+        unitPriceCents: edition.price_cents,
+        buyerEmail,
+      },
+    )
+
+    // ============================================================
+    // 10. CRIA A PREFERÊNCIA NO MERCADO PAGO
+    // ============================================================
+
+    const {
+      preferenceId,
+      initPoint,
+    } = await createPreference({
       registrationId: registration.id,
       title: itemTitle,
       quantity: qty,
       unitPriceCents: edition.price_cents,
       buyerEmail,
-      successUrl: `${siteUrl}/checkout/sucesso?reg=${registration.id}`,
-      failureUrl: `${siteUrl}/checkout/erro?reg=${registration.id}`,
-      pendingUrl: `${siteUrl}/checkout/pendente?reg=${registration.id}`,
-      notificationUrl: `${siteUrl}/api/webhooks/mercadopago`,
+
+      successUrl:
+        `${siteUrl}/checkout/sucesso?reg=${registration.id}`,
+
+      failureUrl:
+        `${siteUrl}/checkout/erro?reg=${registration.id}`,
+
+      pendingUrl:
+        `${siteUrl}/checkout/pendente?reg=${registration.id}`,
+
+      notificationUrl:
+        `${siteUrl}/api/webhooks/mercadopago`,
     })
 
-    // Salva o preference_id na inscrição
-    await admin
+    console.log(
+      "[CHECKOUT] Preferência criada com sucesso:",
+      {
+        preferenceId,
+        hasInitPoint: Boolean(initPoint),
+      },
+    )
+
+    // ============================================================
+    // 11. SALVA O ID DA PREFERÊNCIA NO SUPABASE
+    // ============================================================
+
+    const {
+      error: updateErr,
+    } = await admin
       .from("registrations")
-      .update({ provider_preference_id: preferenceId })
+      .update({
+        provider_preference_id: preferenceId,
+      })
       .eq("id", registration.id)
 
-    return NextResponse.json({ url: initPoint, registrationId: registration.id })
+    if (updateErr) {
+      console.error(
+        "[CHECKOUT] Erro ao salvar preference_id:",
+        updateErr,
+      )
+
+      // Não interrompe o checkout, pois a preferência
+      // já foi criada no Mercado Pago.
+    }
+
+    // ============================================================
+    // 12. RETORNA A URL PARA O FRONTEND
+    // ============================================================
+
+    return NextResponse.json({
+      url: initPoint,
+      registrationId: registration.id,
+    })
   } catch (err) {
-    console.log("[v0] checkout error:", err instanceof Error ? err.message : String(err))
+    // ============================================================
+    // DEBUG TEMPORÁRIO
+    // ============================================================
+
+    const message =
+      err instanceof Error
+        ? err.message
+        : String(err)
+
+    console.error(
+      "[CHECKOUT ERROR] Erro completo:",
+      err,
+    )
+
+    console.error(
+      "[CHECKOUT ERROR] Mensagem:",
+      message,
+    )
+
     return NextResponse.json(
-      { error: "Erro inesperado ao processar o checkout." },
+      {
+        error: message,
+      },
       { status: 500 },
     )
   }
