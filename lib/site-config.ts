@@ -419,8 +419,8 @@ export const socialConfig = {
 export const seoConfig = {
   title: "Raízes e Ritmos — Vivências Musicais de Moçambique",
   description:
-    "Vivências interculturais de Moçambique com música, movimento, canto, dança e criação coletiva. Com Leusio Gil, músico e educador moçambicano.",
-  url: "https://raizeseritmos.com",
-  ogImage: "/images/hero.png",
+    "Leusio Gil é músico, compositor e educador moçambicano no Brasil. Conheça o Raízes e Ritmos, projeto de vivências interculturais com música, canto, dança, movimento e criação coletiva.",
+  url: "https://www.raizeseritmos.art.br",
+  ogImage: "/images/raizes.png",
   locale: "pt_BR",
 }

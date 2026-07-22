@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     image: "/images/fotobioleusiogil.jpg",
   },
   contact: {
-    whatsapp: "https://wa.me/5500000000000",
+    whatsapp: "https://wa.me/5515997205888",
     instagram: "https://instagram.com/",
     youtube: "https://youtube.com/",
     email: "contato@raizeseritmos.com",
