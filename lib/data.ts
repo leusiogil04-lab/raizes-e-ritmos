@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
     name: "Leusio Gil",
     role: "Músico e educador moçambicano",
     bio: "Leusio Gil é músico, Compositor e educador nascido em Moçambique.",
-    image: "/images/fotobioleusiogil.png",
+    image: "/images/fotobioleusiogil.jpg",
   },
   contact: {
     whatsapp: "https://wa.me/5500000000000",

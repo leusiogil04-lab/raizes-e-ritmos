@@ -322,7 +322,7 @@ export const instructorConfig = {
   name: "Leusio Gil",
   roles: ["Músico", "Compositor", "Educador", "Artista Moçambicano"],
   bio: "Leusio Gil é músico, compositor e educador moçambicano. Através de sua trajetória artística, dedica-se a compartilhar a riqueza cultural de Moçambique, criando experiências que conectam música, corpo e encontro. Seu trabalho atravessa fronteiras, aproximando pessoas de diferentes lugares por meio do ritmo e da criação coletiva.",
-  image: "/images/fotobioleusiogil.png",
+  image: "/images/fotobioleusiogil.jpg",
 }
 
 /* ---------------------------------------------------------------------
