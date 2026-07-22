@@ -42,47 +42,45 @@ declare global {
  * IDs das plataformas de analytics.
  */
 export const analyticsIds = {
-  metaPixel: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "",
-  ga: process.env.NEXT_PUBLIC_GA_ID ?? "",
-  gtm: process.env.NEXT_PUBLIC_GTM_ID ?? "",
+  metaPixel:
+    process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "",
+
+  ga:
+    process.env.NEXT_PUBLIC_GA_ID ?? "",
+
+  gtm:
+    process.env.NEXT_PUBLIC_GTM_ID ?? "",
 }
 
 /**
- * Mapeamento dos eventos internos para eventos padrão
- * reconhecidos pelo Meta Pixel.
- *
- * Evento interno          Meta Pixel
- * ------------------------------------------------
- * page_view               PageView
- * view_event              ViewContent
- * click_checkout          InitiateCheckout
- * checkout_redirect       InitiateCheckout
- * select_event            ViewContent
- * purchase                Purchase
- * lead                    Lead
- * free_registration       CompleteRegistration
+ * Mapeamento dos eventos internos para eventos
+ * padrão do Meta Pixel.
  */
-const metaEventMap: Record<AnalyticsEvent, string> = {
+const metaEventMap: Record<
+  AnalyticsEvent,
+  string
+> = {
   page_view: "PageView",
+
   view_event: "ViewContent",
+
   click_checkout: "InitiateCheckout",
-  checkout_redirect: "InitiateCheckout",
+
+  checkout_redirect:
+    "InitiateCheckout",
+
   select_event: "ViewContent",
+
   purchase: "Purchase",
+
   lead: "Lead",
-  free_registration: "CompleteRegistration",
+
+  free_registration:
+    "CompleteRegistration",
 }
 
 /**
  * Eventos padrão do Meta Pixel.
- *
- * Esses eventos devem ser enviados usando:
- *
- * fbq("track", ...)
- *
- * Eventos que não estiverem nessa lista serão enviados como:
- *
- * fbq("trackCustom", ...)
  */
 const standardMetaEvents = new Set([
   "PageView",
@@ -99,25 +97,17 @@ const standardMetaEvents = new Set([
  * - Google Tag Manager
  * - Meta Pixel
  * - Google Analytics
- *
- * Exemplo:
- *
- * track("click_checkout", {
- *   eventSlug: "raizes-e-ritmos",
- *   editionId: "adultos-julho",
- *   value: 0,
- *   currency: "BRL",
- * })
  */
 export function track(
   event: AnalyticsEvent,
   payload: Payload = {},
 ) {
   /**
-   * Evita executar código que depende do navegador
-   * durante o Server-Side Rendering do Next.js.
+   * Impede execução no servidor.
    */
-  if (typeof window === "undefined") {
+  if (
+    typeof window === "undefined"
+  ) {
     return
   }
 
@@ -125,16 +115,6 @@ export function track(
    * ================================================================
    * GOOGLE TAG MANAGER
    * ================================================================
-   *
-   * O evento é enviado para o dataLayer com o nome interno.
-   *
-   * Exemplo:
-   *
-   * {
-   *   event: "free_registration",
-   *   editionId: "...",
-   *   eventSlug: "...",
-   * }
    */
   if (window.dataLayer) {
     window.dataLayer.push({
@@ -147,24 +127,19 @@ export function track(
    * ================================================================
    * META PIXEL
    * ================================================================
-   *
-   * Converte o evento interno para o evento padrão do Meta.
-   *
-   * Exemplo:
-   *
-   * track("free_registration")
-   *
-   * será enviado para o Meta como:
-   *
-   * fbq("track", "CompleteRegistration")
    */
   if (
     window.fbq &&
     analyticsIds.metaPixel
   ) {
-    const metaEvent = metaEventMap[event]
+    const metaEvent =
+      metaEventMap[event]
 
-    if (standardMetaEvents.has(metaEvent)) {
+    if (
+      standardMetaEvents.has(
+        metaEvent,
+      )
+    ) {
       window.fbq(
         "track",
         metaEvent,
@@ -183,16 +158,6 @@ export function track(
    * ================================================================
    * GOOGLE ANALYTICS — GA4
    * ================================================================
-   *
-   * Mantém o nome interno do evento.
-   *
-   * Exemplo:
-   *
-   * free_registration
-   *
-   * será enviado ao GA4 como:
-   *
-   * free_registration
    */
   if (
     window.gtag &&
@@ -209,12 +174,10 @@ export function track(
    * ================================================================
    * LOG DE DESENVOLVIMENTO
    * ================================================================
-   *
-   * Ajuda a verificar os eventos no console
-   * enquanto o site está em desenvolvimento.
    */
   if (
-    process.env.NODE_ENV !== "production"
+    process.env.NODE_ENV !==
+    "production"
   ) {
     console.log(
       "[Analytics]",
