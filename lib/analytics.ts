@@ -1,17 +1,20 @@
 /**
  * =====================================================================
- *  ANALYTICS — Camada única de rastreamento
+ * ANALYTICS — Camada única de rastreamento
  * =====================================================================
  *
- *  Prepara o site para Meta Pixel, Google Analytics e GTM.
- *  Os IDs reais devem ser definidos nas variáveis de ambiente:
+ * Integra:
+ * - Meta Pixel
+ * - Google Analytics (GA4)
+ * - Google Tag Manager (GTM)
  *
- *    NEXT_PUBLIC_META_PIXEL_ID
- *    NEXT_PUBLIC_GA_ID
- *    NEXT_PUBLIC_GTM_ID
+ * IDs definidos nas variáveis de ambiente:
  *
- *  Enquanto os IDs não existirem, os eventos apenas são logados no
- *  console (modo desenvolvimento) e nada é enviado.
+ * NEXT_PUBLIC_META_PIXEL_ID
+ * NEXT_PUBLIC_GA_ID
+ * NEXT_PUBLIC_GTM_ID
+ *
+ * Eventos internos são mapeados para eventos padrão do Meta Pixel.
  * =====================================================================
  */
 
@@ -35,6 +38,9 @@ declare global {
   }
 }
 
+/**
+ * IDs das plataformas de analytics.
+ */
 export const analyticsIds = {
   metaPixel: process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "",
   ga: process.env.NEXT_PUBLIC_GA_ID ?? "",
@@ -42,28 +48,182 @@ export const analyticsIds = {
 }
 
 /**
- * Dispara um evento para todas as plataformas configuradas.
- * Uso: track("click_checkout", { eventId: "adultos-julho" })
+ * Mapeamento dos eventos internos para eventos padrão
+ * reconhecidos pelo Meta Pixel.
+ *
+ * Evento interno          Meta Pixel
+ * ------------------------------------------------
+ * page_view               PageView
+ * view_event              ViewContent
+ * click_checkout          InitiateCheckout
+ * checkout_redirect       InitiateCheckout
+ * select_event            ViewContent
+ * purchase                Purchase
+ * lead                    Lead
+ * free_registration       CompleteRegistration
  */
-export function track(event: AnalyticsEvent, payload: Payload = {}) {
-  if (typeof window === "undefined") return
+const metaEventMap: Record<AnalyticsEvent, string> = {
+  page_view: "PageView",
+  view_event: "ViewContent",
+  click_checkout: "InitiateCheckout",
+  checkout_redirect: "InitiateCheckout",
+  select_event: "ViewContent",
+  purchase: "Purchase",
+  lead: "Lead",
+  free_registration: "CompleteRegistration",
+}
 
-  // Google Tag Manager (dataLayer)
+/**
+ * Eventos padrão do Meta Pixel.
+ *
+ * Esses eventos devem ser enviados usando:
+ *
+ * fbq("track", ...)
+ *
+ * Eventos que não estiverem nessa lista serão enviados como:
+ *
+ * fbq("trackCustom", ...)
+ */
+const standardMetaEvents = new Set([
+  "PageView",
+  "ViewContent",
+  "InitiateCheckout",
+  "Purchase",
+  "Lead",
+  "CompleteRegistration",
+])
+
+/**
+ * Dispara um evento para:
+ *
+ * - Google Tag Manager
+ * - Meta Pixel
+ * - Google Analytics
+ *
+ * Exemplo:
+ *
+ * track("click_checkout", {
+ *   eventSlug: "raizes-e-ritmos",
+ *   editionId: "adultos-julho",
+ *   value: 0,
+ *   currency: "BRL",
+ * })
+ */
+export function track(
+  event: AnalyticsEvent,
+  payload: Payload = {},
+) {
+  /**
+   * Evita executar código que depende do navegador
+   * durante o Server-Side Rendering do Next.js.
+   */
+  if (typeof window === "undefined") {
+    return
+  }
+
+  /**
+   * ================================================================
+   * GOOGLE TAG MANAGER
+   * ================================================================
+   *
+   * O evento é enviado para o dataLayer com o nome interno.
+   *
+   * Exemplo:
+   *
+   * {
+   *   event: "free_registration",
+   *   editionId: "...",
+   *   eventSlug: "...",
+   * }
+   */
   if (window.dataLayer) {
-    window.dataLayer.push({ event, ...payload })
+    window.dataLayer.push({
+      event,
+      ...payload,
+    })
   }
 
-  // Meta Pixel
-  if (window.fbq && analyticsIds.metaPixel) {
-    window.fbq("trackCustom", event, payload)
+  /**
+   * ================================================================
+   * META PIXEL
+   * ================================================================
+   *
+   * Converte o evento interno para o evento padrão do Meta.
+   *
+   * Exemplo:
+   *
+   * track("free_registration")
+   *
+   * será enviado para o Meta como:
+   *
+   * fbq("track", "CompleteRegistration")
+   */
+  if (
+    window.fbq &&
+    analyticsIds.metaPixel
+  ) {
+    const metaEvent = metaEventMap[event]
+
+    if (standardMetaEvents.has(metaEvent)) {
+      window.fbq(
+        "track",
+        metaEvent,
+        payload,
+      )
+    } else {
+      window.fbq(
+        "trackCustom",
+        metaEvent,
+        payload,
+      )
+    }
   }
 
-  // Google Analytics (gtag)
-  if (window.gtag && analyticsIds.ga) {
-    window.gtag("event", event, payload)
+  /**
+   * ================================================================
+   * GOOGLE ANALYTICS — GA4
+   * ================================================================
+   *
+   * Mantém o nome interno do evento.
+   *
+   * Exemplo:
+   *
+   * free_registration
+   *
+   * será enviado ao GA4 como:
+   *
+   * free_registration
+   */
+  if (
+    window.gtag &&
+    analyticsIds.ga
+  ) {
+    window.gtag(
+      "event",
+      event,
+      payload,
+    )
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[v0] analytics:", event, payload)
+  /**
+   * ================================================================
+   * LOG DE DESENVOLVIMENTO
+   * ================================================================
+   *
+   * Ajuda a verificar os eventos no console
+   * enquanto o site está em desenvolvimento.
+   */
+  if (
+    process.env.NODE_ENV !== "production"
+  ) {
+    console.log(
+      "[Analytics]",
+      {
+        event,
+        payload,
+        metaEvent:
+          metaEventMap[event],
+      },
+    )
   }
 }
