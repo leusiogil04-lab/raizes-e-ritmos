@@ -5,7 +5,22 @@ import { getSiteUrl } from "@/lib/site-url"
 
 /**
  * POST /api/checkout
- * Cria uma inscrição pendente e uma preferência de pagamento no Mercado Pago.
+ *
+ * Fluxo:
+ *
+ * TURMA PAGA:
+ * 1. Valida os dados
+ * 2. Verifica turma e vagas
+ * 3. Cria inscrição com status "pending"
+ * 4. Cria preferência no Mercado Pago
+ * 5. Retorna URL do Checkout Pro
+ *
+ * TURMA GRATUITA:
+ * 1. Valida os dados
+ * 2. Verifica turma e vagas
+ * 3. Cria inscrição com status "confirmed"
+ * 4. Não chama o Mercado Pago
+ * 5. Retorna sucesso para o frontend
  *
  * Body:
  * {
@@ -16,6 +31,7 @@ import { getSiteUrl } from "@/lib/site-url"
  *   quantity?
  * }
  */
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -29,7 +45,7 @@ export async function POST(request: Request) {
     } = body ?? {}
 
     // ============================================================
-    // 1. VALIDAÇÃO DOS DADOS RECEBIDOS
+    // 1. VALIDAÇÃO DOS DADOS
     // ============================================================
 
     if (!editionId || !buyerName || !buyerEmail) {
@@ -129,6 +145,9 @@ export async function POST(request: Request) {
     const amountCents =
       edition.price_cents * qty
 
+    const isFree =
+      amountCents <= 0
+
     const eventTitle =
       (edition.events as { title?: string } | null)
         ?.title ?? "Vivência"
@@ -137,8 +156,28 @@ export async function POST(request: Request) {
       ? `${eventTitle} — ${edition.title}`
       : eventTitle
 
+    console.log(
+      "[CHECKOUT] Dados da inscrição:",
+      {
+        editionId,
+        buyerName,
+        buyerEmail,
+        quantity: qty,
+        amountCents,
+        isFree,
+      },
+    )
+
     // ============================================================
-    // 7. CRIA A INSCRIÇÃO PENDENTE NO SUPABASE
+    // 7. CRIA A INSCRIÇÃO
+    //
+    // GRATUITA:
+    // status = confirmed
+    // payment_provider = null
+    //
+    // PAGA:
+    // status = pending
+    // payment_provider = mercadopago
     // ============================================================
 
     const {
@@ -154,8 +193,15 @@ export async function POST(request: Request) {
         quantity: qty,
         amount_cents: amountCents,
         currency: edition.currency ?? "BRL",
-        status: "pending",
-        payment_provider: "mercadopago",
+
+        // Oficina gratuita já está confirmada.
+        // Oficina paga aguarda pagamento.
+        status: isFree ? "confirmed" : "pending",
+
+        // Oficina gratuita não utiliza gateway.
+        payment_provider: isFree
+          ? null
+          : "mercadopago",
       })
       .select("id")
       .single()
@@ -176,8 +222,42 @@ export async function POST(request: Request) {
       )
     }
 
+    console.log(
+      "[CHECKOUT] Inscrição criada:",
+      {
+        registrationId: registration.id,
+        status: isFree ? "confirmed" : "pending",
+      },
+    )
+
     // ============================================================
-    // 8. VERIFICA SE O MERCADO PAGO ESTÁ CONFIGURADO
+    // 8. FLUXO DE OFICINA GRATUITA
+    //
+    // NÃO passa pelo Mercado Pago.
+    // A inscrição já está confirmada.
+    // ============================================================
+
+    if (isFree) {
+      console.log(
+        "[CHECKOUT] Inscrição gratuita confirmada:",
+        registration.id,
+      )
+
+      return NextResponse.json({
+        success: true,
+        free: true,
+        confirmed: true,
+        registrationId: registration.id,
+        message:
+          "Inscrição realizada com sucesso!",
+      })
+    }
+
+    // ============================================================
+    // 9. FLUXO DE OFICINA PAGA
+    //
+    // A partir daqui, continua exatamente o fluxo
+    // do Checkout Pro do Mercado Pago.
     // ============================================================
 
     if (!isMercadoPagoConfigured()) {
@@ -197,7 +277,7 @@ export async function POST(request: Request) {
     }
 
     // ============================================================
-    // 9. OBTÉM A URL PRINCIPAL DO SITE
+    // 10. OBTÉM A URL PRINCIPAL DO SITE
     // ============================================================
 
     const siteUrl = getSiteUrl()
@@ -207,19 +287,8 @@ export async function POST(request: Request) {
       siteUrl,
     )
 
-    console.log(
-      "[CHECKOUT] Criando preferência para:",
-      {
-        registrationId: registration.id,
-        title: itemTitle,
-        quantity: qty,
-        unitPriceCents: edition.price_cents,
-        buyerEmail,
-      },
-    )
-
     // ============================================================
-    // 10. CRIA A PREFERÊNCIA NO MERCADO PAGO
+    // 11. CRIA A PREFERÊNCIA NO MERCADO PAGO
     // ============================================================
 
     const {
@@ -254,7 +323,7 @@ export async function POST(request: Request) {
     )
 
     // ============================================================
-    // 11. SALVA O ID DA PREFERÊNCIA NO SUPABASE
+    // 12. SALVA O ID DA PREFERÊNCIA NO SUPABASE
     // ============================================================
 
     const {
@@ -272,21 +341,25 @@ export async function POST(request: Request) {
         updateErr,
       )
 
-      // Não interrompe o checkout, pois a preferência
-      // já foi criada no Mercado Pago.
+      // Não interrompe o checkout.
+      // A preferência já foi criada no Mercado Pago.
     }
 
     // ============================================================
-    // 12. RETORNA A URL PARA O FRONTEND
+    // 13. RETORNA A URL DO MERCADO PAGO
     // ============================================================
 
     return NextResponse.json({
+      success: true,
+      free: false,
+      confirmed: false,
       url: initPoint,
       registrationId: registration.id,
     })
+
   } catch (err) {
     // ============================================================
-    // DEBUG TEMPORÁRIO
+    // DEBUG
     // ============================================================
 
     const message =

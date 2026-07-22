@@ -23,6 +23,7 @@ export type AnalyticsEvent =
   | "select_event"
   | "purchase"
   | "lead"
+  | "free_registration"
 
 type Payload = Record<string, unknown>
 
